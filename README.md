@@ -1,76 +1,39 @@
-HISTFILE=$HOME/.zsh_history
-HISTSIZE=10000
-SAVEHIST=10000
-setopt INC_APPEND_HISTORY
-setopt SHARE_HISTORY
-setopt HIST_IGNORE_ALL_DUPS
-setopt HIST_IGNORE_SPACE
+# Termux Config
 
-source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
-ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#555"
-ZSH_AUTOSUGGEST_STRATEGY=(history)
+Konfigurasi Zsh untuk Termux yang membuat tampilan dan fitur seperti terminal Linux. Fitur:
+- Autosuggestion dari history (ghost text)
+- Syntax highlighting untuk perintah, path, opsi
+- Prompt dinamis menampilkan direktori aktif & virtual env
+- History hanya perintah sukses, anti duplikat
+- Blok kursor, navigasi panah kanan pintar
 
-source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-ZSH_HIGHLIGHT_HIGHLIGHTERS=(main brackets pattern)
-ZSH_HIGHLIGHT_STYLES[default]='fg=white'
-ZSH_HIGHLIGHT_STYLES[command]='fg=green,bold'
-ZSH_HIGHLIGHT_STYLES[builtin]='fg=green,bold'
-ZSH_HIGHLIGHT_STYLES[alias]='fg=green,bold'
-ZSH_HIGHLIGHT_STYLES[function]='fg=green,bold'
-ZSH_HIGHLIGHT_STYLES[single-hyphen-option]='fg=yellow'
-ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=yellow'
-ZSH_HIGHLIGHT_STYLES[path]='fg=cyan,bold'
-ZSH_HIGHLIGHT_STYLES[path_prefix]='fg=cyan,bold'
-ZSH_HIGHLIGHT_STYLES[globbing]='fg=magenta'
+## Persyaratan
+- Termux (dari F-Droid)
+- Koneksi internet
 
-if [[ -z "$_TERMUX_WELCOME_SHOWN" ]]; then
-    printf 'Welcome to Termux!\n\n'
-    export _TERMUX_WELCOME_SHOWN=1
-fi
+## Setup & Installasi
+Jalankan perintah berikut di Termux:
+```bash
+# Clone repositori:
+git clone https://github.com/neveerlabs/Termux-Config.git
 
-_last_exit_code=0
-precmd() {
-    _last_exit_code=$?
-    printf '\e[2 q'
+# Masuk kedalam folder:
+cd Termux-Config
 
-    local env_part=""
-    if [[ -n $VIRTUAL_ENV ]]; then
-        env_part="%F{magenta}[$(basename $VIRTUAL_ENV)]%f "
-    fi
+# Install dependensi:
+pkg update && pkg install zsh git -y
 
-    local path_part=""
-    if [[ $PWD == "/" ]]; then
-        path_part="/"
-    elif [[ $PWD != $HOME ]]; then
-        local abspath="$PWD"
-        if (( ${#abspath} > 30 )); then
-            path_part="/•••/${abspath##*/}/"
-        else
-            path_part="${abspath}/"
-        fi
-    fi
+# Install plugin:
+git clone https://github.com/zsh-users/zsh-autosuggestions ~/.zsh/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.zsh/zsh-syntax-highlighting
 
-    local base_prompt="%F{green}Termux%f%F{white}@%f%F{blue}terminal%f"
-    if [[ -n $path_part ]]; then
-        base_prompt+=" %F{cyan}${path_part}%f"
-    fi
-    base_prompt+=" %F{yellow}$%f "
+# Hilangkan banner termux:
+touch ~/.hushlogin
 
-    PROMPT="${env_part}${base_prompt}"
-}
+# Ubah shell default ke Zsh:
+chsh -s zsh
 
-zshaddhistory() {
-    [[ $_last_exit_code -eq 0 ]] && return 0 || return 1
-}
-
-function _accept_suggestion_or_forward_char() {
-    if [[ -n $POSTDISPLAY ]] && [[ $CURSOR -eq ${#BUFFER} ]]; then
-        zle autosuggest-accept
-    else
-        zle forward-char
-    fi
-}
-zle -N _accept_suggestion_or_forward_char
-bindkey '^[[C' _accept_suggestion_or_forward_char
-bindkey '^F' autosuggest-accept
-bindkey '^[[1;3C' forward-word
+# Salin konfigurasi ke home:
+cp .zshrc ~/.zshrc
+```
+> *Setelah semuanya selesai, keluar dari termux lalu masuk kembali kedalam termux*
