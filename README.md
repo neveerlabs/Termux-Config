@@ -1,5 +1,9 @@
 # Termux Config
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/template.jpg" alt="Termux Config Preview" width="600">
+</p>
+
 Konfigurasi Zsh untuk Termux yang membuat tampilan dan fitur seperti terminal Linux. Fitur:
 - Autosuggestion dari history tersimpan (ghost text)
 - Syntax highlighting untuk perintah, path & opsi
