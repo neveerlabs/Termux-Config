@@ -7,6 +7,9 @@ setopt HIST_IGNORE_ALL_DUPS
 setopt HIST_IGNORE_SPACE
 setopt NO_NOTIFY
 
+autoload -Uz compinit
+compinit
+
 source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#555"
 ZSH_AUTOSUGGEST_STRATEGY=(history)
@@ -23,6 +26,19 @@ ZSH_HIGHLIGHT_STYLES[double-hyphen-option]='fg=yellow'
 ZSH_HIGHLIGHT_STYLES[path]='fg=white,bold'
 ZSH_HIGHLIGHT_STYLES[path_prefix]='fg=white'
 ZSH_HIGHLIGHT_STYLES[globbing]='fg=magenta'
+
+source ~/.zsh/zsh-autocomplete/zsh-autocomplete.plugin.zsh
+zstyle ':autocomplete:*' min-input 1
+zstyle ':autocomplete:*' history-search yes
+zstyle ':autocomplete:*' insert-unambiguous no
+zstyle ':autocomplete:*' list-lines 16
+zstyle ':autocomplete:*' autosuggest no
+zstyle ':autocomplete:*' recent-dirs-insert always
+zstyle ':completion:*' menu select
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+bindkey -M autocomplete '^[[C' undefined-key
+bindkey -M autocomplete '^[[C' _accept_suggestion_or_forward_char
+bindkey -M autocomplete '^F' autosuggest-accept
 
 alias ls='ls --color=auto'
 export LS_COLORS='di=36:fi=37:ln=36:ex=32:or=31:mi=31'
