@@ -58,6 +58,72 @@ if [[ -z "$_TERMUX_WELCOME_SHOWN" ]]; then
     export _TERMUX_WELCOME_SHOWN=1
 fi
 
+TERMUX_CONFIG_DIR="$HOME/Termux-Config"
+_update_check_done=0
+
+_check_for_updates() {
+    if [[ $_update_check_done -eq 1 ]]; then
+        return
+    fi
+    _update_check_done=1
+
+    if [[ ! -d "$TERMUX_CONFIG_DIR" ]]; then
+        return
+    fi
+
+    local local_version=""
+    if [[ -f "$TERMUX_CONFIG_DIR/version.txt" ]]; then
+        local_version=$(<"$TERMUX_CONFIG_DIR/version.txt")
+    fi
+
+    local remote_version=""
+    remote_version=$(curl -fsSL --max-time 5 "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/version.txt" 2>/dev/null)
+    if [[ -z "$remote_version" ]]; then
+        return
+    fi
+
+    if [[ "$local_version" != "$remote_version" ]]; then
+        printf '\n'
+        printf '╔══════════════════════════════════════════╗\n'
+        printf '║  Update available!                      ║\n'
+        printf '╠══════════════════════════════════════════╣\n'
+        printf '║  Current version: %-23s║\n' "$local_version"
+        printf '║  New version:     %-23s║\n' "$remote_version"
+        printf '╚══════════════════════════════════════════╝\n'
+        printf '\n'
+        if [[ -f "$TERMUX_CONFIG_DIR/Changelog.md" ]]; then
+            printf 'Changelog:\n'
+            cat "$TERMUX_CONFIG_DIR/Changelog.md"
+            printf '\n'
+        else
+            local changelog_content
+            changelog_content=$(curl -fsSL --max-time 5 "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/Changelog.md" 2>/dev/null)
+            if [[ -n "$changelog_content" ]]; then
+                printf 'Changelog:\n%s\n\n' "$changelog_content"
+            fi
+        fi
+
+        printf 'Do you want to update? (y/n): '
+        read -rk1 ans
+        printf '\n'
+        if [[ "$ans" == "y" || "$ans" == "Y" ]]; then
+            printf 'Updating...\n'
+            if git -C "$TERMUX_CONFIG_DIR" rev-parse --is-inside-work-tree &>/dev/null; then
+                git -C "$TERMUX_CONFIG_DIR" pull --ff-only
+            else
+                curl -fsSL -o "$TERMUX_CONFIG_DIR/.zshrc" "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/.zshrc"
+                curl -fsSL -o "$TERMUX_CONFIG_DIR/version.txt" "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/version.txt"
+                curl -fsSL -o "$TERMUX_CONFIG_DIR/Changelog.md" "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/Changelog.md"
+                curl -fsSL -o "$TERMUX_CONFIG_DIR/README.md" "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/README.md"
+            fi
+            if [[ -f "$TERMUX_CONFIG_DIR/.zshrc" ]]; then
+                cp "$TERMUX_CONFIG_DIR/.zshrc" ~/.zshrc
+            fi
+            printf 'Update complete. Restart Termux to apply changes.\n'
+        fi
+    fi
+}
+
 _last_exit_code=0
 _first_prompt=1
 precmd() {
@@ -66,6 +132,7 @@ precmd() {
     if (( _first_prompt )); then
         printf '\033[2J\033[H'
         _first_prompt=0
+        _check_for_updates
     fi
 
     printf '\e[2 q'
