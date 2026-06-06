@@ -48,10 +48,12 @@ if [ -z "$USER_NAME" ]; then
     USER_NAME="user"
 fi
 
-if ! pgrep -x "mariadbd" > /dev/null; then
+# ==== MariaDB start super silent, zero log ====
+if ! pgrep -x "mysqld" > /dev/null && ! pgrep -x "mariadbd" > /dev/null; then
     termux-wake-lock 2>/dev/null
-    mariadbd-safe &>/dev/null &!
+    mysqld --log-error=/dev/null --general-log=0 --slow-query-log=0 --pid-file=$PREFIX/var/lib/mysql/$(hostname).pid &>/dev/null &!
 fi
+# ================================================
 
 if [[ -z "$_TERMUX_WELCOME_SHOWN" ]]; then
     printf 'Welcome to Termux!\n\n'
