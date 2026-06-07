@@ -48,12 +48,10 @@ if [ -z "$USER_NAME" ]; then
     USER_NAME="user"
 fi
 
-# ==== MariaDB start super silent, zero log ====
 if ! pgrep -x "mysqld" > /dev/null && ! pgrep -x "mariadbd" > /dev/null; then
     termux-wake-lock 2>/dev/null
     mysqld --log-error=/dev/null --general-log=0 --slow-query-log=0 --pid-file=$PREFIX/var/lib/mysql/$(hostname).pid &>/dev/null &!
 fi
-# ================================================
 
 if [[ -z "$_TERMUX_WELCOME_SHOWN" ]]; then
     printf 'Welcome to Termux!\n\n'
@@ -167,7 +165,7 @@ precmd() {
     local white="%F{white}"
     local reset="%f"
 
-    PROMPT="${green}┌───${reset}${env_part}${green}(${reset}${cyan}${USER_NAME}㉿kali${reset}${green})-[${reset}${white}${display_path}${reset}${green}]${reset}
+    PROMPT="${green}┌───${reset}${env_part}${green}(${reset}${cyan}${USER_NAME}㉿termux${reset}${green})-[${reset}${white}${display_path}${reset}${green}]${reset}
 ${green}└──${white}\$${reset} "
 }
 
