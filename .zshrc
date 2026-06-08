@@ -43,6 +43,8 @@ bindkey -M autocomplete '^F' autosuggest-accept
 alias ls='ls --color=auto'
 export LS_COLORS='di=36:fi=37:ln=36:ex=32:or=31:mi=31'
 
+TERMUX_CONFIG_VERSION="v3.2.0"
+
 [ -f ~/.zsh_config ] && source ~/.zsh_config
 if [ -z "$USER_NAME" ]; then
     USER_NAME="user"
@@ -61,6 +63,57 @@ fi
 TERMUX_CONFIG_DIR="$HOME/Termux-Config"
 _update_check_done=0
 
+_download_with_progress() {
+    local url="$1"
+    local dest="$2"
+    local filename=$(basename "$dest")
+    printf 'Updating %s ... ' "$filename"
+    if curl -# -L -o "$dest" "$url" 2>&1; then
+        printf 'Done\n'
+        return 0
+    else
+        printf 'Failed\n'
+        return 1
+    fi
+}
+
+_perform_update() {
+    local base_url="https://raw.githubusercontent.com/neveerlabs/Termux-Config/main"
+    local update_failed=0
+    mkdir -p "$TERMUX_CONFIG_DIR"
+    _download_with_progress "$base_url/.zshrc" "$HOME/.zshrc.tmp" || update_failed=1
+    if [[ $update_failed -eq 0 ]]; then
+        mv "$HOME/.zshrc.tmp" "$HOME/.zshrc"
+        cp "$HOME/.zshrc" "$TERMUX_CONFIG_DIR/.zshrc"
+    fi
+    _download_with_progress "$base_url/Changelog.md" "$TERMUX_CONFIG_DIR/Changelog.md" || true
+    _download_with_progress "$base_url/README.md" "$TERMUX_CONFIG_DIR/README.md" || true
+    _download_with_progress "$base_url/config.sh" "$TERMUX_CONFIG_DIR/config.sh" || true
+    if [[ $update_failed -eq 0 ]]; then
+        printf '\nUpdate complete. Restart Termux to apply changes.\n'
+    else
+        printf '\nUpdate finished with errors. Some files may not have been updated.\n'
+    fi
+}
+
+_scan_updates_output() {
+    local remote_version
+    remote_version=$(curl -fsSL --max-time 5 "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/version.txt" 2>/dev/null)
+    if [[ -z "$remote_version" ]]; then
+        printf 'Unable to check remote version.\n'
+        return 1
+    fi
+    printf 'Local version:  %s\n' "$TERMUX_CONFIG_VERSION"
+    printf 'Remote version: %s\n' "$remote_version"
+    if [[ "$TERMUX_CONFIG_VERSION" != "$remote_version" ]]; then
+        printf 'Update available.\n'
+        return 0
+    else
+        printf 'Already up to date.\n'
+        return 0
+    fi
+}
+
 _check_for_updates() {
     if [[ $_update_check_done -eq 1 ]]; then
         return
@@ -71,23 +124,18 @@ _check_for_updates() {
         return
     fi
 
-    local local_version=""
-    if [[ -f "$TERMUX_CONFIG_DIR/version.txt" ]]; then
-        local_version=$(<"$TERMUX_CONFIG_DIR/version.txt")
-    fi
-
-    local remote_version=""
+    local remote_version
     remote_version=$(curl -fsSL --max-time 5 "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/version.txt" 2>/dev/null)
     if [[ -z "$remote_version" ]]; then
         return
     fi
 
-    if [[ "$local_version" != "$remote_version" ]]; then
+    if [[ "$TERMUX_CONFIG_VERSION" != "$remote_version" ]]; then
         printf '\n'
         printf '╔══════════════════════════════════════════╗\n'
         printf '║  Update available!                      ║\n'
         printf '╠══════════════════════════════════════════╣\n'
-        printf '║  Current version: %-23s║\n' "$local_version"
+        printf '║  Current version: %-23s║\n' "$TERMUX_CONFIG_VERSION"
         printf '║  New version:     %-23s║\n' "$remote_version"
         printf '╚══════════════════════════════════════════╝\n'
         printf '\n'
@@ -107,19 +155,7 @@ _check_for_updates() {
         read -rk1 ans
         printf '\n'
         if [[ "$ans" == "y" || "$ans" == "Y" ]]; then
-            printf 'Updating...\n'
-            if git -C "$TERMUX_CONFIG_DIR" rev-parse --is-inside-work-tree &>/dev/null; then
-                git -C "$TERMUX_CONFIG_DIR" pull --ff-only
-            else
-                curl -fsSL -o "$TERMUX_CONFIG_DIR/.zshrc" "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/.zshrc"
-                curl -fsSL -o "$TERMUX_CONFIG_DIR/version.txt" "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/version.txt"
-                curl -fsSL -o "$TERMUX_CONFIG_DIR/Changelog.md" "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/Changelog.md"
-                curl -fsSL -o "$TERMUX_CONFIG_DIR/README.md" "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/README.md"
-            fi
-            if [[ -f "$TERMUX_CONFIG_DIR/.zshrc" ]]; then
-                cp "$TERMUX_CONFIG_DIR/.zshrc" ~/.zshrc
-            fi
-            printf 'Update complete. Restart Termux to apply changes.\n'
+            _perform_update
         fi
     fi
 }
@@ -184,3 +220,28 @@ zle -N _accept_suggestion_or_forward_char
 bindkey '^[[C' _accept_suggestion_or_forward_char
 bindkey '^F' autosuggest-accept
 bindkey '^[[1;3C' forward-word
+
+command_not_found_handler() {
+    if [[ "$1" == "--help" ]]; then
+        printf '%s\n' "Available custom commands:"
+        printf '%s\n' "  --help          Show this help message"
+        printf '%s\n' "  --version       Show script version"
+        printf '%s\n' "  --updates scan  Check for updates"
+        printf '%s\n' "  --update        Update configuration files"
+        return 0
+    fi
+    if [[ "$1" == "--version" ]]; then
+        printf '%s\n' "$TERMUX_CONFIG_VERSION"
+        return 0
+    fi
+    if [[ "$1" == "--updates" && "$2" == "scan" ]]; then
+        _scan_updates_output
+        return 0
+    fi
+    if [[ "$1" == "--update" ]]; then
+        _perform_update
+        return 0
+    fi
+    printf 'zsh: command not found: %s\n' "$1"
+    return 127
+}
