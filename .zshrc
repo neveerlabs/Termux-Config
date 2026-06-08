@@ -27,6 +27,9 @@ ZSH_HIGHLIGHT_STYLES[path]='fg=white,bold'
 ZSH_HIGHLIGHT_STYLES[path_prefix]='fg=white'
 ZSH_HIGHLIGHT_STYLES[globbing]='fg=magenta'
 
+typeset -A ZSH_HIGHLIGHT_PATTERNS
+ZSH_HIGHLIGHT_PATTERNS=('--help' 'fg=cyan,bold' '--version' 'fg=cyan,bold' '--updates' 'fg=cyan,bold' '--update' 'fg=cyan,bold')
+
 source ~/.zsh/zsh-autocomplete/zsh-autocomplete.plugin.zsh
 zstyle ':autocomplete:*' min-input 1
 zstyle ':autocomplete:*' history-search yes
