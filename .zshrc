@@ -28,7 +28,7 @@ ZSH_HIGHLIGHT_STYLES[path_prefix]='fg=white'
 ZSH_HIGHLIGHT_STYLES[globbing]='fg=magenta'
 
 typeset -A ZSH_HIGHLIGHT_PATTERNS
-ZSH_HIGHLIGHT_PATTERNS=('--help' 'fg=cyan,bold' '--version' 'fg=cyan,bold' '--updates' 'fg=cyan,bold' '--update' 'fg=cyan,bold')
+ZSH_HIGHLIGHT_PATTERNS=('--help' 'fg=cyan,bold' '--version' 'fg=cyan,bold' '--updates' 'fg=cyan,bold' '--update' 'fg=cyan,bold' '--changelog' 'fg=cyan,bold')
 
 source ~/.zsh/zsh-autocomplete/zsh-autocomplete.plugin.zsh
 zstyle ':autocomplete:*' min-input 1
@@ -182,6 +182,42 @@ else:
 " "$since_version" <<< "$changelog_json" 2>/dev/null || printf 'Failed to parse changelog.\n'
     else
         printf 'Python3 required to display changelog.\n'
+    fi
+}
+
+_show_full_changelog() {
+    local changelog_file="$TERMUX_CONFIG_DIR/Changelog.json"
+    local changelog_json
+    if command -v curl >/dev/null 2>&1; then
+        changelog_json=$(curl -fsSL --max-time 10 "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/Changelog.json" 2>/dev/null)
+        if [[ -n "$changelog_json" ]]; then
+            printf '%s\n' "$changelog_json" > "$changelog_file"
+        fi
+    fi
+    if [[ -z "$changelog_json" ]]; then
+        if [[ -f "$changelog_file" ]]; then
+            changelog_json=$(cat "$changelog_file")
+        else
+            printf 'Changelog not available.\n'
+            return 1
+        fi
+    fi
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "
+import json, sys
+try:
+    entries = json.loads(sys.stdin.read())
+except:
+    print('Failed to parse changelog.')
+    sys.exit(1)
+for i, e in enumerate(entries):
+    print(f\"Version {e['version']}:\")
+    print(e['changes'])
+    if i < len(entries) - 1:
+        print('\n' + '─' * 40 + '\n')
+" <<< "$changelog_json" 2>/dev/null || printf 'Failed to parse changelog.\n'
+    else
+        printf 'Python3 required to display full changelog.\n'
     fi
 }
 
@@ -358,6 +394,7 @@ command_not_found_handler() {
             printf '%s\n' "  --updates [scan|install]   Check for updates (default: scan)"
             printf '%s\n' "  --update        Update configuration files"
             printf '%s\n' "  --reconfig      Re-run setup script"
+            printf '%s\n' "  --changelog     Show full changelog"
             return 0
             ;;
         --version)
@@ -386,6 +423,10 @@ command_not_found_handler() {
                 printf 'Config script not found. Run --update to fetch it.\n'
                 return 1
             fi
+            return 0
+            ;;
+        --changelog)
+            _show_full_changelog
             return 0
             ;;
         *)
