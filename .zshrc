@@ -39,23 +39,32 @@ zstyle ':autocomplete:*' autosuggest no
 zstyle ':autocomplete:*' recent-dirs-insert always
 zstyle ':completion:*' menu select
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
-bindkey -M autocomplete '^[[C' undefined-key
 bindkey -M autocomplete '^[[C' _accept_suggestion_or_forward_char
 bindkey -M autocomplete '^F' autosuggest-accept
 
 alias ls='ls --color=auto'
-export LS_COLORS='di=36:fi=37:ln=36:ex=32:or=31:mi=31'
+export LS_COLORS='di=36:fi=37:ln=36:ex=32:or=31:mi=31:pi=35:so=33:bd=33;1:cd=33;1:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:*.tar=01;33:*.tgz=01;33:*.arc=01;33:*.arj=01;33:*.taz=01;33:*.lha=01;33:*.lz4=01;33:*.lzh=01;33:*.lzma=01;33:*.tlz=01;33:*.txz=01;33:*.tzo=01;33:*.t7z=01;33:*.zip=01;33:*.z=01;33:*.dz=01;33:*.gz=01;33:*.lrz=01;33:*.lz=01;33:*.lzo=01;33:*.xz=01;33:*.zst=01;33:*.tzst=01;33:*.bz2=01;33:*.bz=01;33:*.tbz=01;33:*.tbz2=01;33:*.tz=01;33:*.deb=01;33:*.rpm=01;33:*.jar=01;33:*.war=01;33:*.ear=01;33:*.sar=01;33:*.rar=01;33:*.alz=01;33:*.ace=01;33:*.zoo=01;33:*.cpio=01;33:*.7z=01;33:*.rz=01;33:*.cab=01;33:*.wim=01;33:*.swm=01;33:*.dwm=01;33:*.esd=01;33:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'
 
-TERMUX_CONFIG_VERSION="v3.2.1"
+TERMUX_CONFIG_VERSION="v4.0.0"
 
 [ -f ~/.zsh_config ] && source ~/.zsh_config
 if [ -z "$USER_NAME" ]; then
     USER_NAME="user"
 fi
+if [ -z "$ENABLE_MYSQL" ]; then
+    ENABLE_MYSQL="yes"
+fi
+if [ -z "$UPDATE_CHECK" ]; then
+    UPDATE_CHECK="yes"
+fi
 
-if ! pgrep -x "mysqld" > /dev/null && ! pgrep -x "mariadbd" > /dev/null; then
-    termux-wake-lock 2>/dev/null
-    mysqld --log-error=/dev/null --general-log=0 --slow-query-log=0 --pid-file=$PREFIX/var/lib/mysql/$(hostname).pid &>/dev/null &!
+if [[ "$ENABLE_MYSQL" == "yes" ]]; then
+    if command -v mysqld >/dev/null 2>&1 || command -v mariadbd >/dev/null 2>&1; then
+        if ! pgrep -x "mysqld" > /dev/null && ! pgrep -x "mariadbd" > /dev/null; then
+            termux-wake-lock 2>/dev/null
+            mysqld --log-error=/dev/null --general-log=0 --slow-query-log=0 --pid-file=$PREFIX/var/lib/mysql/$(hostname).pid &>/dev/null &!
+        fi
+    fi
 fi
 
 if [[ -z "$_TERMUX_WELCOME_SHOWN" ]]; then
@@ -81,6 +90,9 @@ _download_with_progress() {
 }
 
 _get_remote_version() {
+    if ! command -v curl >/dev/null 2>&1; then
+        return 1
+    fi
     local remote_zshrc
     remote_zshrc=$(curl -fsSL --max-time 10 "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/.zshrc" 2>/dev/null)
     if [[ -z "$remote_zshrc" ]]; then
@@ -96,31 +108,62 @@ _get_remote_version() {
 }
 
 _version_parse() {
-    python3 -c "import sys; v=sys.argv[1].lstrip('v'); print('.'.join(str(int(x)) for x in v.split('.')))" "$1" 2>/dev/null || echo "0.0.0"
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "import sys; v=sys.argv[1].lstrip('v'); print('.'.join(str(int(x)) for x in v.split('.')))" "$1" 2>/dev/null || echo "0.0.0"
+    else
+        local v="${1#v}"
+        echo "$v" | awk -F. '{ printf "%d.%d.%d", $1+0, $2+0, $3+0 }' 2>/dev/null || echo "0.0.0"
+    fi
 }
 
 _version_greater_equal() {
     local v1=$(_version_parse "$1")
     local v2=$(_version_parse "$2")
-    python3 -c "
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "
 import sys
 v1 = tuple(map(int, sys.argv[1].split('.')))
 v2 = tuple(map(int, sys.argv[2].split('.')))
 sys.exit(0 if v1 >= v2 else 1)
 " "$v1" "$v2" 2>/dev/null
-    return $?
+        return $?
+    else
+        local IFS=.
+        local a1=(${=v1})
+        local a2=(${=v2})
+        for i in 1 2 3; do
+            local x=${a1[$i]:-0}
+            local y=${a2[$i]:-0}
+            if (( x > y )); then
+                return 0
+            elif (( x < y )); then
+                return 1
+            fi
+        done
+        return 0
+    fi
 }
 
 _show_changelog_since() {
     local since_version="$1"
-    local changelog_url="https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/Changelog.json"
+    local changelog_file="$TERMUX_CONFIG_DIR/Changelog.json"
     local changelog_json
-    changelog_json=$(curl -fsSL --max-time 10 "$changelog_url" 2>/dev/null)
-    if [[ -z "$changelog_json" ]]; then
-        printf 'Changelog not available.\n'
-        return
+    if command -v curl >/dev/null 2>&1; then
+        changelog_json=$(curl -fsSL --max-time 10 "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/Changelog.json" 2>/dev/null)
+        if [[ -n "$changelog_json" ]]; then
+            printf '%s\n' "$changelog_json" > "$changelog_file"
+        fi
     fi
-    python3 -c "
+    if [[ -z "$changelog_json" ]]; then
+        if [[ -f "$changelog_file" ]]; then
+            changelog_json=$(cat "$changelog_file")
+        else
+            printf 'Changelog not available.\n'
+            return 1
+        fi
+    fi
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "
 import json, sys
 entries = json.loads(sys.stdin.read())
 since = sys.argv[1]
@@ -134,6 +177,22 @@ else:
     for e in relevant:
         print(f\"Version {e['version']}:\n{e['changes']}\n\")
 " "$since_version" <<< "$changelog_json" 2>/dev/null || printf 'Failed to parse changelog.\n'
+    else
+        printf 'Python3 required to display changelog.\n'
+    fi
+}
+
+_update_plugins() {
+    local plugins=(
+        "$HOME/.zsh/zsh-autosuggestions"
+        "$HOME/.zsh/zsh-syntax-highlighting"
+        "$HOME/.zsh/zsh-autocomplete"
+    )
+    for plugin in "${plugins[@]}"; do
+        if [[ -d "$plugin/.git" ]]; then
+            git -C "$plugin" pull --ff-only 2>/dev/null
+        fi
+    done
 }
 
 _perform_update() {
@@ -148,6 +207,7 @@ _perform_update() {
     _download_with_progress "$base_url/Changelog.json" "$TERMUX_CONFIG_DIR/Changelog.json" || true
     _download_with_progress "$base_url/README.md" "$TERMUX_CONFIG_DIR/README.md" || true
     _download_with_progress "$base_url/config.sh" "$TERMUX_CONFIG_DIR/config.sh" || true
+    _update_plugins
     if [[ $update_failed -eq 0 ]]; then
         printf '\nUpdate complete. Restart Termux to apply changes.\n'
     else
@@ -156,6 +216,10 @@ _perform_update() {
 }
 
 _scan_updates_output() {
+    if ! command -v curl >/dev/null 2>&1; then
+        printf 'curl is required.\n'
+        return 1
+    fi
     local remote_version
     remote_version=$(_get_remote_version)
     if [[ -z "$remote_version" ]]; then
@@ -182,17 +246,20 @@ _check_for_updates() {
         return
     fi
     _update_check_done=1
-
+    if [[ "$UPDATE_CHECK" != "yes" ]]; then
+        return
+    fi
     if [[ ! -d "$TERMUX_CONFIG_DIR" ]]; then
         mkdir -p "$TERMUX_CONFIG_DIR"
     fi
-
+    if ! command -v curl >/dev/null 2>&1; then
+        return
+    fi
     local remote_version
     remote_version=$(_get_remote_version)
     if [[ -z "$remote_version" ]]; then
         return
     fi
-
     if [[ "$TERMUX_CONFIG_VERSION" != "$remote_version" ]]; then
         if _version_greater_equal "$remote_version" "$TERMUX_CONFIG_VERSION"; then
             printf '\n'
@@ -214,17 +281,21 @@ _check_for_updates() {
     fi
 }
 
+autoload -Uz vcs_info
+zstyle ':vcs_info:*' enable git
+zstyle ':vcs_info:*' check-for-changes false
+zstyle ':vcs_info:git:*' formats '%F{yellow}(%b)%f'
+
 _last_exit_code=0
 _first_prompt=1
 precmd() {
     _last_exit_code=$?
-
     if (( _first_prompt )); then
         printf '\033[2J\033[H'
         _first_prompt=0
         _check_for_updates
     fi
-
+    vcs_info
     printf '\e[2 q'
     printf '\e]12;white\a'
 
@@ -255,7 +326,7 @@ precmd() {
     local white="%F{white}"
     local reset="%f"
 
-    PROMPT="${green}┌───${reset}${env_part}${green}(${reset}${cyan}${USER_NAME}㉿termux${reset}${green})-[${reset}${white}${display_path}${reset}${green}]${reset}
+    PROMPT="${green}┌───${reset}${env_part}${green}(${reset}${cyan}${USER_NAME}㉿termux${reset}${green})-[${reset}${white}${display_path}${reset}${green}]${vcs_info_msg_0_}${reset}
 ${green}└──${white}\$${reset} "
 }
 
@@ -276,26 +347,47 @@ bindkey '^F' autosuggest-accept
 bindkey '^[[1;3C' forward-word
 
 command_not_found_handler() {
-    if [[ "$1" == "--help" ]]; then
-        printf '%s\n' "Available custom commands:"
-        printf '%s\n' "  --help          Show this help message"
-        printf '%s\n' "  --version       Show script version"
-        printf '%s\n' "  --updates scan  Check for updates"
-        printf '%s\n' "  --update        Update configuration files"
-        return 0
-    fi
-    if [[ "$1" == "--version" ]]; then
-        printf '%s\n' "$TERMUX_CONFIG_VERSION"
-        return 0
-    fi
-    if [[ "$1" == "--updates" && "$2" == "scan" ]]; then
-        _scan_updates_output
-        return 0
-    fi
-    if [[ "$1" == "--update" ]]; then
-        _perform_update
-        return 0
-    fi
-    printf 'zsh: command not found: %s\n' "$1"
-    return 127
+    case "$1" in
+        --help)
+            printf '%s\n' "Available custom commands:"
+            printf '%s\n' "  --help          Show this help message"
+            printf '%s\n' "  --version       Show script version"
+            printf '%s\n' "  --updates [scan|install]   Check for updates (default: scan)"
+            printf '%s\n' "  --update        Update configuration files"
+            printf '%s\n' "  --reconfig      Re-run setup script"
+            return 0
+            ;;
+        --version)
+            printf '%s\n' "$TERMUX_CONFIG_VERSION"
+            return 0
+            ;;
+        --updates)
+            if [[ -z "$2" || "$2" == "scan" ]]; then
+                _scan_updates_output
+            elif [[ "$2" == "install" ]]; then
+                _perform_update
+            else
+                printf 'Usage: --updates [scan|install]\n'
+                return 1
+            fi
+            return 0
+            ;;
+        --update)
+            _perform_update
+            return 0
+            ;;
+        --reconfig)
+            if [[ -f "$TERMUX_CONFIG_DIR/config.sh" ]]; then
+                bash "$TERMUX_CONFIG_DIR/config.sh"
+            else
+                printf 'Config script not found. Run --update to fetch it.\n'
+                return 1
+            fi
+            return 0
+            ;;
+        *)
+            printf 'zsh: command not found: %s\n' "$1"
+            return 127
+            ;;
+    esac
 }
