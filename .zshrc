@@ -170,12 +170,15 @@ since = sys.argv[1]
 def parse(v):
     return tuple(map(int, v.lstrip('v').split('.')))
 target = parse(since)
-relevant = [e for e in entries if parse(e['version']) > target]
-if not relevant:
-    print('No recent changes.')
+latest = None
+for e in entries:
+    if parse(e['version']) > target:
+        latest = e
+        break
+if latest:
+    print(f\"Version {latest['version']}:\n{latest['changes']}\")
 else:
-    for e in relevant:
-        print(f\"Version {e['version']}:\n{e['changes']}\n\")
+    print('No recent changes.')
 " "$since_version" <<< "$changelog_json" 2>/dev/null || printf 'Failed to parse changelog.\n'
     else
         printf 'Python3 required to display changelog.\n'
