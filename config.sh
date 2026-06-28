@@ -20,6 +20,7 @@ ensure_pkg zsh
 ensure_pkg git
 ensure_pkg which
 ensure_pkg curl
+ensure_pkg python
 
 mkdir -p ~/.zsh
 
@@ -67,7 +68,8 @@ if [ -f ~/.zsh_config ]; then
     read -rp "[?] Change username? (y/n): " ganti
     if [[ "$ganti" == "y" ]]; then
         read -rp "[+] Enter new username: " new_name
-        echo "USER_NAME=$new_name" > ~/.zsh_config
+        USER_NAME="$new_name"
+        echo "USER_NAME=$USER_NAME" > ~/.zsh_config
         echo "[+] Username updated."
     else
         echo "[i] Keeping existing username."
@@ -77,6 +79,22 @@ else
     echo "USER_NAME=$user_name" > ~/.zsh_config
     echo "[+] Username saved."
 fi
+
+read -rp "[?] Auto-start MySQL/MariaDB if present? (y/n): " mysql_auto
+if [[ "$mysql_auto" =~ ^[Yy] ]]; then
+    ENABLE_MYSQL="yes"
+else
+    ENABLE_MYSQL="no"
+fi
+grep -q "^ENABLE_MYSQL=" ~/.zsh_config 2>/dev/null && sed -i "s/^ENABLE_MYSQL=.*/ENABLE_MYSQL=$ENABLE_MYSQL/" ~/.zsh_config || echo "ENABLE_MYSQL=$ENABLE_MYSQL" >> ~/.zsh_config
+
+read -rp "[?] Enable automatic update check on startup? (y/n): " update_check
+if [[ "$update_check" =~ ^[Yy] ]]; then
+    UPDATE_CHECK="yes"
+else
+    UPDATE_CHECK="no"
+fi
+grep -q "^UPDATE_CHECK=" ~/.zsh_config 2>/dev/null && sed -i "s/^UPDATE_CHECK=.*/UPDATE_CHECK=$UPDATE_CHECK/" ~/.zsh_config || echo "UPDATE_CHECK=$UPDATE_CHECK" >> ~/.zsh_config
 
 if [ "$SHELL" != "$(which zsh)" ]; then
     echo "[+] Changing default shell to zsh..."
