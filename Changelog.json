@@ -1,18 +1,22 @@
 [
   {
-    "version": "v1.3.8",
-    "changes": "Initial release:\n- Kali Linux style prompt with dynamic path & virtualenv indicator\n- Autosuggestion (ghost text) from history of successful commands\n- Syntax highlighting for commands, options, and paths\n- Autocomplete dropdown from history with arrow key selection\n- History filtering: only successful commands, no duplicates\n- Block cursor styling for better visibility\n- Auto-update checking from GitHub repository\n- Modern setup script with automatic dependency installation"
+    "version": "v4.0.0",
+    "changes": "Major update - The 'Steel Dragon' release:\n- Added Python dependency auto-install in config.sh for full feature support\n- Pure shell version comparison fallback when Python is not available\n- Cleaned up keybindings: unified autocomplete accept and forward-char behavior\n- MySQL/MariaDB auto-start now checks if binary exists and respects ENABLE_MYSQL setting\n- MySQL startup produces zero log output, completely silent\n- Plugin auto-update (_update_plugins) on --update or --updates install\n- Changelog cached locally for offline viewing after first fetch\n- --updates now defaults to 'scan' if no argument given; added 'install' subcommand\n- New --reconfig command to re-run setup script without full reinstall\n- Git branch name displayed in prompt (using vcs_info)\n- Expanded LS_COLORS with full dircolors-style definitions for better file type visibility\n- New configuration options: ENABLE_MYSQL, UPDATE_CHECK saved in ~/.zsh_config\n- config.sh now interactively asks for MySQL and auto-update preferences\n- Robust error prevention: all functions guarded against missing commands\n- Version bumped to v4.0.0"
   },
   {
-    "version": "v3.1.9",
-    "changes": "Pre-release update:\n- Custom command handler for --help and --version\n- Version check via version.txt on startup\n- Update notification with changelog from Changelog.md\n- Directory restructure for Termux-Config\n- Initial groundwork for OTA update mechanism"
+    "version": "v3.2.1",
+    "changes": "Minor update:\n- Added syntax highlighting for custom commands (--help, --version, --updates, --update)\n- Polished command not found handler\n- Internal version bump"
   },
   {
     "version": "v3.2.0",
     "changes": "Major update:\n- Renamed hostname from 'kali' to 'termux'\n- MariaDB auto-start with zero log, no interference with prompt\n- Custom command system: --help, --version, --updates scan, --update\n- Version now read from .zshrc (no more version.txt dependency)\n- Changelog.json replaces Changelog.md, shows relevant changes on update\n- Update check compares versions from .zshrc in remote repo\n- Download progress animation for each file during update\n- Improved error handling and strict crash prevention"
   },
   {
-    "version": "v3.2.1",
-    "changes": "Minor update:\n- Added syntax highlighting for custom commands (--help, --version, --updates, --update)\n- Polished command not found handler\n- Internal version bump"
+    "version": "v3.1.9",
+    "changes": "Pre-release update:\n- Custom command handler for --help and --version\n- Version check via version.txt on startup\n- Update notification with changelog from Changelog.md\n- Directory restructure for Termux-Config\n- Initial groundwork for OTA update mechanism"
+  },
+  {
+    "version": "v1.3.8",
+    "changes": "Initial release:\n- Kali Linux style prompt with dynamic path & virtualenv indicator\n- Autosuggestion (ghost text) from history of successful commands\n- Syntax highlighting for commands, options, and paths\n- Autocomplete dropdown from history with arrow key selection\n- History filtering: only successful commands, no duplicates\n- Block cursor styling for better visibility\n- Auto-update checking from GitHub repository\n- Modern setup script with automatic dependency installation"
   }
 ]
