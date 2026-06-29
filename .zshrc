@@ -210,12 +210,18 @@ try:
 except:
     print('Failed to parse changelog.')
     sys.exit(1)
-for i, e in enumerate(entries):
-    print(f\"Version {e['version']}:\")
-    print(e['changes'])
-    if i < len(entries) - 1:
-        print('\n' + '─' * 40 + '\n')
-" <<< "$changelog_json" 2>/dev/null || printf 'Failed to parse changelog.\n'
+current_version = sys.argv[1]
+found = None
+for e in entries:
+    if e['version'] == current_version:
+        found = e
+        break
+if found:
+    print(f\"Version {found['version']}:\")
+    print(found['changes'])
+else:
+    print('No changelog found for current version.')
+" "$TERMUX_CONFIG_VERSION" <<< "$changelog_json" 2>/dev/null || printf 'Failed to parse changelog.\n'
     else
         printf 'Python3 required to display full changelog.\n'
     fi
