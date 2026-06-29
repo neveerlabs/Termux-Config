@@ -503,13 +503,18 @@ command_not_found_handler() {
 LOCATION_FILE="$HOME/.termux/location.json"
 SCHEDULE_FILE="$HOME/.termux/schedule.json"
 TEMP_DIR="$HOME/.termux/tmp"
+SOUND_DIR="$TERMUX_CONFIG_DIR/sound"
+ALARM_PID_FILE="$HOME/.termux/alarm_pids.txt"
+ALARM_FLAG_FILE="$HOME/.termux/alarm_scheduled_date"
+
 mkdir -p "$TEMP_DIR"
+mkdir -p "$SOUND_DIR"
 
 _find_praytimes() {
-    if [[ -f "$HOME/PrayTimes.js" ]]; then
-        echo "$HOME/PrayTimes.js"
-    elif [[ -f "$HOME/.termux/praytimes/PrayTimes.js" ]]; then
+    if [[ -f "$HOME/.termux/praytimes/PrayTimes.js" ]]; then
         echo "$HOME/.termux/praytimes/PrayTimes.js"
+    elif [[ -f "$HOME/PrayTimes.js" ]]; then
+        echo "$HOME/PrayTimes.js"
     else
         echo ""
     fi
@@ -519,12 +524,123 @@ _notify() {
     local title="$1"
     local message="$2"
     if command -v termux-notification >/dev/null 2>&1; then
-        termux-notification --title "$title" --content "$message" --sound --priority high 2>/dev/null || true
+        termux-notification --title "$title" --content "$message" --sound --priority high --alert-once 2>/dev/null || true
     elif command -v termux-tts-speak >/dev/null 2>&1; then
         termux-tts-speak "$message" 2>/dev/null || true
     else
         printf '\a'
     fi
+}
+
+_ensure_sound_files() {
+    local base="https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/sound"
+    local files=("alarm.mp3" "sapa.mp3" "adzan.mp3")
+    for f in "${files[@]}"; do
+        if [[ ! -f "$SOUND_DIR/$f" ]]; then
+            curl -fsSL --max-time 20 -o "$SOUND_DIR/$f" "$base/$f" 2>/dev/null || true
+        fi
+    done
+}
+
+_play_mp3() {
+    local file="$1"
+    if command -v termux-media-player >/dev/null 2>&1; then
+        termux-media-player play "$file" 2>/dev/null
+        sleep 1
+        while termux-media-player info 2>/dev/null | grep -q "playing"; do
+            sleep 1
+        done
+        return 0
+    elif command -v play >/dev/null 2>&1; then
+        play -q "$file" 2>/dev/null
+        return $?
+    elif command -v mpv >/dev/null 2>&1; then
+        mpv --no-terminal --really-quiet "$file" 2>/dev/null
+        return $?
+    else
+        return 1
+    fi
+}
+
+_kill_old_alarms() {
+    if [[ -f "$ALARM_PID_FILE" ]]; then
+        while read pid; do
+            kill "$pid" 2>/dev/null || true
+        done < "$ALARM_PID_FILE"
+        rm -f "$ALARM_PID_FILE"
+    fi
+}
+
+_schedule_prayer_alarms() {
+    if [[ ! -f "$SCHEDULE_FILE" ]]; then
+        return 1
+    fi
+    _ensure_sound_files
+
+    local now_ts=$(date +%s)
+    local schedule_json=$(cat "$SCHEDULE_FILE")
+    local date_sched=$(echo "$schedule_json" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).date)")
+    local today=$(date +%Y-%m-%d)
+
+    if [[ "$date_sched" != "$today" ]]; then
+        return 1
+    fi
+
+    if [[ -f "$ALARM_FLAG_FILE" ]]; then
+        local saved_date=$(cat "$ALARM_FLAG_FILE")
+        if [[ "$saved_date" == "$today" ]]; then
+            return 0
+        fi
+    fi
+
+    _kill_old_alarms
+    echo "$today" > "$ALARM_FLAG_FILE"
+
+    local prayers=("fajr" "dhuhr" "asr" "maghrib" "isha")
+    local prayer_names=("Subuh" "Zuhur" "Ashar" "Maghrib" "Isya")
+
+    for i in {1..5}; do
+        local key="${prayers[$i]}"
+        local name="${prayer_names[$i]}"
+        local time_str=$(echo "$schedule_json" | node -e "
+            const t = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).times;
+            process.stdout.write(t['$key']);
+        ")
+        local target_ts=$(date -d "$today $time_str" +%s 2>/dev/null || echo 0)
+        if (( target_ts <= now_ts )); then
+            continue
+        fi
+
+        local alarm15_ts=$(( target_ts - 900 ))
+        local sapa_ts=$(( target_ts - 30 ))
+        local adzan_ts=$target_ts
+
+        if (( alarm15_ts > now_ts )); then
+            (
+                sleep $(( alarm15_ts - now_ts ))
+                _notify "Alarm sebelum adzan $name" "Beberapa saat lagi akan masuk waktu adzan $name, berhentilah sejenak untuk beristirahat dan menunaikan ibadah sholat $name"
+                _play_mp3 "$SOUND_DIR/alarm.mp3"
+            ) &
+            echo $! >> "$ALARM_PID_FILE"
+        fi
+
+        if (( sapa_ts > now_ts )); then
+            (
+                sleep $(( sapa_ts - now_ts ))
+                _play_mp3 "$SOUND_DIR/sapa.mp3"
+            ) &
+            echo $! >> "$ALARM_PID_FILE"
+        fi
+
+        if (( adzan_ts > now_ts )); then
+            (
+                sleep $(( adzan_ts - now_ts ))
+                _notify "Waktunya sholat $name!" "STOP!!! Angkat tangan kamu dari ponsel, sekarang sudah masuk waktunya sholat!"
+                _play_mp3 "$SOUND_DIR/adzan.mp3"
+            ) &
+            echo $! >> "$ALARM_PID_FILE"
+        fi
+    done
 }
 
 _fetch_location() {
@@ -680,4 +796,6 @@ _auto_update_schedule() {
     if (( need_update )); then
         _fetch_location && _generate_schedule
     fi
+
+    _schedule_prayer_alarms
 }
