@@ -60,6 +60,22 @@ else
     fi
 fi
 
+mkdir -p ~/.termux/praytimes
+
+if [ -f "$SCRIPT_DIR/PrayTimes.js" ]; then
+    cp "$SCRIPT_DIR/PrayTimes.js" ~/.termux/praytimes/PrayTimes.js
+    echo "[+] PrayTimes.js copied from script directory."
+else
+    echo "[!] PrayTimes.js not found in script directory, downloading from GitHub..."
+    curl -fsSL -o ~/.termux/praytimes/PrayTimes.js "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/PrayTimes.js"
+    if [ -f ~/.termux/praytimes/PrayTimes.js ]; then
+        echo "[+] PrayTimes.js downloaded successfully."
+    else
+        echo "[!] Failed to download PrayTimes.js. Please check your internet connection or repository URL."
+        exit 1
+    fi
+fi
+
 touch ~/.hushlogin
 
 if [ -f ~/.zsh_config ]; then
