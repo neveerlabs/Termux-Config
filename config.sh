@@ -21,6 +21,11 @@ ensure_pkg git
 ensure_pkg which
 ensure_pkg curl
 ensure_pkg python
+ensure_pkg nodejs
+ensure_pkg termux-api
+ensure_pkg bc
+ensure_pkg sox
+ensure_pkg mpv
 
 mkdir -p ~/.zsh
 
@@ -51,11 +56,14 @@ if [ -f "$SCRIPT_DIR/.zshrc" ]; then
     echo "[+] .zshrc copied from script directory."
 else
     echo "[!] .zshrc not found in script directory, downloading from GitHub..."
-    curl -fsSL -o ~/.zshrc "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/.zshrc"
+    curl -fsSL -o ~/.zshrc "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/.zshrc" 2>/dev/null || {
+        echo "[!] Failed to download .zshrc. Please check your internet connection or repository URL."
+        exit 1
+    }
     if [ -f ~/.zshrc ]; then
         echo "[+] .zshrc downloaded successfully."
     else
-        echo "[!] Failed to download .zshrc. Please check your internet connection or repository URL."
+        echo "[!] Failed to download .zshrc."
         exit 1
     fi
 fi
@@ -67,13 +75,45 @@ if [ -f "$SCRIPT_DIR/PrayTimes.js" ]; then
     echo "[+] PrayTimes.js copied from script directory."
 else
     echo "[!] PrayTimes.js not found in script directory, downloading from GitHub..."
-    curl -fsSL -o ~/.termux/praytimes/PrayTimes.js "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/PrayTimes.js"
+    curl -fsSL -o ~/.termux/praytimes/PrayTimes.js "https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/PrayTimes.js" 2>/dev/null || {
+        echo "[!] Failed to download PrayTimes.js. Please check your internet connection or repository URL."
+        exit 1
+    }
     if [ -f ~/.termux/praytimes/PrayTimes.js ]; then
         echo "[+] PrayTimes.js downloaded successfully."
     else
-        echo "[!] Failed to download PrayTimes.js. Please check your internet connection or repository URL."
+        echo "[!] Failed to download PrayTimes.js."
         exit 1
     fi
+fi
+
+VENV_PATH="$HOME/venv"
+VENV_CREATED=false
+if [ ! -d "$VENV_PATH" ]; then
+    echo "[*] Python virtual environment not found. Creating..."
+    python3 -m venv "$VENV_PATH" || {
+        echo "[!] Failed to create virtual environment. Trying to install python3-venv..."
+        pkg install -y python
+        python3 -m venv "$VENV_PATH" || {
+            echo "[!] Could not create virtual environment. Continuing without it."
+            VENV_PATH=""
+        }
+    }
+    if [ -d "$VENV_PATH" ]; then
+        VENV_CREATED=true
+        echo "[+] Virtual environment created at $VENV_PATH"
+    fi
+else
+    echo "[i] Python virtual environment already exists at $VENV_PATH"
+fi
+
+if [ -n "$VENV_PATH" ]; then
+    source "$VENV_PATH/bin/activate"
+    echo "[*] Upgrading pip..."
+    pip install --upgrade pip 2>/dev/null || true
+    echo "[*] Installing Python dependencies..."
+    pip install requests 2>/dev/null || true
+    deactivate
 fi
 
 touch ~/.hushlogin
@@ -124,4 +164,15 @@ if ! grep -q "exec zsh -l" ~/.bashrc; then
     echo "[+] Zsh will now load automatically when you restart Termux."
 fi
 
-echo "[*] Setup complete. Restart Termux or run 'exec zsh'."
+echo "[*] Setup complete."
+echo ""
+echo "=========== IMPORTANT NOTES ==========="
+echo "1. Make sure Termux:API app is installed from F-Droid and permissions are granted (especially Location)."
+echo "2. Run 'termux-location' once to trigger the location permission popup."
+echo "3. To manually check prayer times, use commands: --location, --schedule, --update, --changelog"
+echo "4. If sound not working, install one of: termux-media-player (built-in), sox, mpv"
+echo "5. Restart Termux or run 'exec zsh' to start using the new configuration."
+if [ "$VENV_CREATED" = true ]; then
+    echo "6. A Python virtual environment was created at ~/venv. To use it, run: source ~/venv/bin/activate"
+fi
+echo "======================================="
