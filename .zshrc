@@ -185,7 +185,7 @@ else:
     fi
 }
 
-_show_full_changelog() {
+_show_current_changelog() {
     local changelog_file="$TERMUX_CONFIG_DIR/Changelog.json"
     local changelog_json
     if command -v curl >/dev/null 2>&1; then
@@ -205,11 +205,7 @@ _show_full_changelog() {
     if command -v python3 >/dev/null 2>&1; then
         python3 -c "
 import json, sys
-try:
-    entries = json.loads(sys.stdin.read())
-except:
-    print('Failed to parse changelog.')
-    sys.exit(1)
+entries = json.loads(sys.stdin.read())
 current_version = sys.argv[1]
 found = None
 for e in entries:
@@ -223,7 +219,7 @@ else:
     print('No changelog found for current version.')
 " "$TERMUX_CONFIG_VERSION" <<< "$changelog_json" 2>/dev/null || printf 'Failed to parse changelog.\n'
     else
-        printf 'Python3 required to display full changelog.\n'
+        printf 'Python3 required to display changelog.\n'
     fi
 }
 
@@ -339,7 +335,7 @@ precmd() {
         printf '\033[2J\033[H'
         _first_prompt=0
         _check_for_updates
-        (_auto_update_schedule &)
+        (_auto_update_schedule &) 2>/dev/null
     fi
     vcs_info
     printf '\e[2 q'
@@ -401,7 +397,7 @@ command_not_found_handler() {
             printf '%s\n' "  --updates [scan|install]   Check for updates (default: scan)"
             printf '%s\n' "  --update        Update configuration files"
             printf '%s\n' "  --reconfig      Re-run setup script"
-            printf '%s\n' "  --changelog     Show full changelog"
+            printf '%s\n' "  --changelog     Show changelog for current version"
             printf '%s\n' "  --location      Show current location data"
             printf '%s\n' "  --schedule      Show prayer times schedule"
             return 0
@@ -435,7 +431,7 @@ command_not_found_handler() {
             return 0
             ;;
         --changelog)
-            _show_full_changelog
+            _show_current_changelog
             return 0
             ;;
         --location)
@@ -513,8 +509,8 @@ SOUND_DIR="$TERMUX_CONFIG_DIR/sound"
 ALARM_PID_FILE="$HOME/.termux/alarm_pids.txt"
 ALARM_FLAG_FILE="$HOME/.termux/alarm_scheduled_date"
 
-mkdir -p "$TEMP_DIR"
-mkdir -p "$SOUND_DIR"
+mkdir -p "$TEMP_DIR" 2>/dev/null
+mkdir -p "$SOUND_DIR" 2>/dev/null
 
 _find_praytimes() {
     if [[ -f "$HOME/.termux/praytimes/PrayTimes.js" ]]; then
@@ -530,7 +526,7 @@ _notify() {
     local title="$1"
     local message="$2"
     if command -v termux-notification >/dev/null 2>&1; then
-        termux-notification --title "$title" --content "$message" --sound --priority high --alert-once 2>/dev/null || true
+        termux-notification --title "$title" --content "$message" --sound --priority high 2>/dev/null || true
     elif command -v termux-tts-speak >/dev/null 2>&1; then
         termux-tts-speak "$message" 2>/dev/null || true
     else
@@ -550,6 +546,9 @@ _ensure_sound_files() {
 
 _play_mp3() {
     local file="$1"
+    if [[ ! -f "$file" ]]; then
+        return 1
+    fi
     if command -v termux-media-player >/dev/null 2>&1; then
         termux-media-player play "$file" 2>/dev/null
         sleep 1
@@ -584,8 +583,8 @@ _schedule_prayer_alarms() {
     _ensure_sound_files
 
     local now_ts=$(date +%s)
-    local schedule_json=$(cat "$SCHEDULE_FILE")
-    local date_sched=$(echo "$schedule_json" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).date)")
+    local schedule_json=$(cat "$SCHEDULE_FILE" 2>/dev/null)
+    local date_sched=$(echo "$schedule_json" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).date)" 2>/dev/null)
     local today=$(date +%Y-%m-%d)
 
     if [[ "$date_sched" != "$today" ]]; then
@@ -593,7 +592,7 @@ _schedule_prayer_alarms() {
     fi
 
     if [[ -f "$ALARM_FLAG_FILE" ]]; then
-        local saved_date=$(cat "$ALARM_FLAG_FILE")
+        local saved_date=$(cat "$ALARM_FLAG_FILE" 2>/dev/null)
         if [[ "$saved_date" == "$today" ]]; then
             return 0
         fi
@@ -611,7 +610,7 @@ _schedule_prayer_alarms() {
         local time_str=$(echo "$schedule_json" | node -e "
             const t = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8')).times;
             process.stdout.write(t['$key']);
-        ")
+        " 2>/dev/null)
         local target_ts=$(date -d "$today $time_str" +%s 2>/dev/null || echo 0)
         if (( target_ts <= now_ts )); then
             continue
@@ -627,7 +626,7 @@ _schedule_prayer_alarms() {
                 _notify "Alarm sebelum adzan $name" "Beberapa saat lagi akan masuk waktu adzan $name, berhentilah sejenak untuk beristirahat dan menunaikan ibadah sholat $name"
                 _play_mp3 "$SOUND_DIR/alarm.mp3"
             ) &
-            echo $! >> "$ALARM_PID_FILE"
+            echo $! >> "$ALARM_PID_FILE" 2>/dev/null
         fi
 
         if (( sapa_ts > now_ts )); then
@@ -635,7 +634,7 @@ _schedule_prayer_alarms() {
                 sleep $(( sapa_ts - now_ts ))
                 _play_mp3 "$SOUND_DIR/sapa.mp3"
             ) &
-            echo $! >> "$ALARM_PID_FILE"
+            echo $! >> "$ALARM_PID_FILE" 2>/dev/null
         fi
 
         if (( adzan_ts > now_ts )); then
@@ -644,7 +643,7 @@ _schedule_prayer_alarms() {
                 _notify "Waktunya sholat $name!" "STOP!!! Angkat tangan kamu dari ponsel, sekarang sudah masuk waktunya sholat!"
                 _play_mp3 "$SOUND_DIR/adzan.mp3"
             ) &
-            echo $! >> "$ALARM_PID_FILE"
+            echo $! >> "$ALARM_PID_FILE" 2>/dev/null
         fi
     done
 }
@@ -657,7 +656,7 @@ _fetch_location() {
     local best_lat="" best_lon="" best_acc=999
     local address_json=""
 
-    mkdir -p "$HOME/.termux"
+    mkdir -p "$HOME/.termux" 2>/dev/null
 
     for ((i=1; i<=MAX_TRIES; i++)); do
         location_json=$(termux-location 2>/dev/null) || true
@@ -669,7 +668,7 @@ _fetch_location() {
             const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
             if (d.error) { console.log('ERROR:' + d.error); process.exit(1); }
             console.log(d.latitude + ',' + d.longitude + ',' + (d.accuracy || 999));
-        " <<< "$location_json") || continue
+        " <<< "$location_json" 2>/dev/null) || continue
         IFS=',' read -r lat lon acc <<< "$parsed"
         if (( $(echo "$acc < $best_acc" | bc -l) )); then
             best_lat="$lat"
@@ -708,7 +707,7 @@ _fetch_location() {
             address: addr.address || {}
         };
         require('fs').writeFileSync('$LOCATION_FILE', JSON.stringify(loc, null, 2));
-    " <<< "$address_json"
+    " <<< "$address_json" 2>/dev/null
 
     _notify "Berhasil mendapatkan lokasi" "Lokasi anda saat ini: ${kelurahan}, ${kecamatan} ${kota} dengan accuracy ${acc}m! Tabel akan segera disesuaikan."
     return 0
@@ -726,11 +725,11 @@ _generate_schedule() {
         return 1
     fi
 
-    mkdir -p "$HOME/.termux"
+    mkdir -p "$HOME/.termux" 2>/dev/null
 
     local lat lon
-    lat=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$LOCATION_FILE','utf8')).latitude)")
-    lon=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$LOCATION_FILE','utf8')).longitude)")
+    lat=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$LOCATION_FILE','utf8')).latitude)" 2>/dev/null)
+    lon=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$LOCATION_FILE','utf8')).longitude)" 2>/dev/null)
 
     local offset_hours=$(date +%z | sed 's/^+//; s/^-//; s/^0*//' | awk '{print $1/100}')
     [[ $(date +%z) == -* ]] && offset_hours="-$offset_hours"
@@ -738,8 +737,8 @@ _generate_schedule() {
     local year=$(date +%Y) month=$(date +%m) day=$(date +%d)
 
     local temp_pt="$TEMP_DIR/praytimes_$$.js"
-    cat "$PRAYTIMES_JS" > "$temp_pt"
-    echo '; module.exports = PrayTime;' >> "$temp_pt"
+    cat "$PRAYTIMES_JS" > "$temp_pt" 2>/dev/null
+    echo '; module.exports = PrayTime;' >> "$temp_pt" 2>/dev/null
 
     local times_json
     times_json=$(node -e "
@@ -750,13 +749,13 @@ _generate_schedule() {
         pt.format('24h');
         const t = pt.times([$year, $month, $day]);
         console.log(JSON.stringify({ fajr: t.fajr, dhuhr: t.dhuhr, asr: t.asr, maghrib: t.maghrib, isha: t.isha }));
-    ") || {
-        rm -f "$temp_pt"
+    " 2>/dev/null) || {
+        rm -f "$temp_pt" 2>/dev/null
         _notify "Terjadi kesalahan!" "Error: Failed to calculate prayer times."
         return 1
     }
 
-    rm -f "$temp_pt"
+    rm -f "$temp_pt" 2>/dev/null
 
     node -e "
         const loc = JSON.parse(require('fs').readFileSync('$LOCATION_FILE','utf8'));
@@ -768,7 +767,7 @@ _generate_schedule() {
             times: times
         };
         require('fs').writeFileSync('$SCHEDULE_FILE', JSON.stringify(sched, null, 2));
-    "
+    " 2>/dev/null
 
     local kelurahan="" kecamatan="" kota=""
     kelurahan=$(node -e "const a=JSON.parse(require('fs').readFileSync('$LOCATION_FILE','utf8')).address||{}; process.stdout.write(a.village||a.suburb||a.neighbourhood||a.hamlet||'')" 2>/dev/null)
