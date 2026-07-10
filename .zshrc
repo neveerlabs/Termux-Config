@@ -45,7 +45,7 @@ bindkey -M autocomplete '^F' autosuggest-accept
 alias ls='ls --color=auto'
 export LS_COLORS='di=36:fi=37:ln=36:ex=32:or=31:mi=31:pi=35:so=33:bd=33;1:cd=33;1:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:*.tar=01;33:*.tgz=01;33:*.arc=01;33:*.arj=01;33:*.taz=01;33:*.lha=01;33:*.lz4=01;33:*.lzh=01;33:*.lzma=01;33:*.tlz=01;33:*.txz=01;33:*.tzo=01;33:*.t7z=01;33:*.zip=01;33:*.z=01;33:*.dz=01;33:*.gz=01;33:*.lrz=01;33:*.lz=01;33:*.lzo=01;33:*.xz=01;33:*.zst=01;33:*.tzst=01;33:*.bz2=01;33:*.bz=01;33:*.tbz=01;33:*.tbz2=01;33:*.tz=01;33:*.deb=01;33:*.rpm=01;33:*.jar=01;33:*.war=01;33:*.ear=01;33:*.sar=01;33:*.rar=01;33:*.alz=01;33:*.ace=01;33:*.zoo=01;33:*.cpio=01;33:*.7z=01;33:*.rz=01;33:*.cab=01;33:*.wim=01;33:*.swm=01;33:*.dwm=01;33:*.esd=01;33:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'
 
-TERMUX_CONFIG_VERSION="v4.2.5"
+TERMUX_CONFIG_VERSION="v4.2.2"
 
 [ -f ~/.zsh_config ] && source ~/.zsh_config
 if [ -z "$USER_NAME" ]; then
@@ -79,64 +79,64 @@ _download_with_progress() {
     local url="$1"
     local dest="$2"
     local filename=$(basename "$dest")
-    local total_size=$(curl -sI -L --max-time 5 "$url" | grep -i content-length | tail -1 | awk '{print $2}')
-    if [[ -z "$total_size" || "$total_size" == "0" ]]; then
-        total_size=0
-    fi
-    local size_label
-    if [[ $total_size -gt 0 ]]; then
-        size_label=$(LC_NUMERIC=C numfmt --to=iec --suffix=B "$total_size" 2>/dev/null || echo "${total_size}B")
+    local remote_size
+    remote_size=$(curl -sI "$url" 2>/dev/null | grep -i content-length | awk '{print $2}' | tr -d '\r')
+    local remote_kb="?"
+    if [[ -n "$remote_size" && "$remote_size" -gt 0 ]]; then
+        remote_kb=$(( remote_size / 1024 ))
     else
-        size_label="??B"
+        remote_size=0
     fi
 
-    printf "[X] \033[33m%s\033[0m \033[37m%s\033[0m " "$size_label" "$filename"
+    setopt localoptions no_monitor 2>/dev/null
 
-    curl -L -o "$dest" "$url" &
-    local curl_pid=$!
-    local bar_length=40
+    curl -L -o "$dest" "$url" 2>/dev/null &
+    local pid=$!
+
+    local bar_width=20
+    local filled=0
     local percent=0
-    local downloaded_size=0
-
-    while kill -0 "$curl_pid" 2>/dev/null; do
-        if [[ -f "$dest" ]]; then
-            downloaded_size=$(wc -c < "$dest" 2>/dev/null | tr -d ' ' || echo 0)
-        fi
-        if [[ $total_size -gt 0 ]]; then
-            percent=$(( downloaded_size * 100 / total_size ))
-            [[ $percent -gt 100 ]] && percent=100
-        else
-            percent=0
-        fi
-
-        local filled=$(( bar_length * percent / 100 ))
-        local empty=$(( bar_length - filled ))
-        local bar=""
-        for ((i=0; i<filled; i++)); do bar="${bar}#"; done
-        for ((i=0; i<empty; i++)); do bar="${bar}."; done
-
-        printf "\r[X] \033[33m%s\033[0m \033[37m%s\033[0m %s \033[32m%d%%\033[0m" "$size_label" "$filename" "$bar" "$percent"
-        sleep 0.2
-    done
-
-    wait "$curl_pid"
-    local exit_code=$?
-
-    if [[ $total_size -eq 0 ]]; then
-        downloaded_size=$(wc -c < "$dest" 2>/dev/null | tr -d ' ' || echo 0)
-        if [[ $downloaded_size -gt 0 ]]; then percent=100; fi
-    else
-        percent=100
-    fi
+    local dest_size=0
     local bar=""
-    for ((i=0; i<bar_length; i++)); do bar="${bar}#"; done
-    printf "\r[X] \033[33m%s\033[0m \033[37m%s\033[0m %s \033[32m%d%%\033[0m\n" "$size_label" "$filename" "$bar" "$percent"
+    local i
 
-    if [[ $exit_code -eq 0 ]]; then
-        return 0
+    if [[ "$remote_size" -gt 0 ]]; then
+        printf 'Updating %s %skb [' "$filename" "$remote_kb"
+        while kill -0 "$pid" 2>/dev/null; do
+            if [[ -f "$dest" ]]; then
+                dest_size=$(wc -c < "$dest" 2>/dev/null || echo 0)
+            fi
+            percent=$(( dest_size * 100 / remote_size ))
+            (( percent > 100 )) && percent=100
+            filled=$(( percent * bar_width / 100 ))
+            bar=""
+            for ((i=0; i<filled; i++)); do bar+="#"; done
+            for ((i=filled; i<bar_width; i++)); do bar+="·"; done
+            printf '\rUpdating %s %skb [%s] %d%%' "$filename" "$remote_kb" "$bar" "$percent"
+            sleep 0.2
+        done
+        wait "$pid" 2>/dev/null
+        local exit_code=$?
+        bar=""
+        for ((i=0; i<bar_width; i++)); do bar+="#"; done
+        if [[ $exit_code -eq 0 ]]; then
+            printf '\rUpdating %s %skb [%s] Done\n' "$filename" "$remote_kb" "$bar"
+            return 0
+        else
+            printf '\rUpdating %s %skb [%s] Failed\n' "$filename" "$remote_kb" "$bar"
+            return 1
+        fi
     else
-        printf "Failed (download error).\n"
-        return 1
+        printf 'Updating %s ...' "$filename"
+        wait "$pid" 2>/dev/null
+        local exit_code=$?
+        if [[ $exit_code -eq 0 ]]; then
+            printf '\rUpdating %s Done\n' "$filename"
+            return 0
+        else
+            printf '\rUpdating %s Failed\n' "$filename"
+            return 1
+        fi
     fi
 }
 
@@ -356,7 +356,7 @@ _check_for_updates() {
         if _version_greater_equal "$remote_version" "$TERMUX_CONFIG_VERSION"; then
             printf '\n'
             printf '╔══════════════════════════════════════════╗\n'
-            printf '║  Update available!                      ║\n'
+            printf '║  Update available!                       ║\n'
             printf '╠══════════════════════════════════════════╣\n'
             printf '║  Current version: %-23s║\n' "$TERMUX_CONFIG_VERSION"
             printf '║  New version:     %-23s║\n' "$remote_version"
@@ -550,6 +550,8 @@ command_not_found_handler() {
             ;;
     esac
 }
+
+# --------------- Location & Schedule Functions ---------------
 
 LOCATION_FILE="$HOME/.termux/location.json"
 SCHEDULE_FILE="$HOME/.termux/schedule.json"
