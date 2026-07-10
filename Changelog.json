@@ -1,5 +1,9 @@
 [
   {
+    "version": "v4.2.2",
+    "changes": "UI enhancement & update improvements:\n- Modern download progress bar with live percentage and dynamic spinner\n- Smooth transition from loading percentage to 'Done' status upon completion\n- Refined progress display for better visibility and fewer visual artifacts\n- Enhanced error handling for download progress edge cases (missing content-length)\n- Version bump to v4.2.2"
+  },
+  {
     "version": "v4.2.1",
     "changes": "Refinement update - Enhanced stability & UX:\n- Refined changelog command: --changelog now displays only the current version's changes\n- Added _kill_old_alarms() to prevent overlapping alarm processes\n- Strengthened error handling across all schedule/location/alarm functions\n- Added file existence check in _play_mp3 to avoid crashes\n- Removed --alert-once from notifications for broader Android compatibility\n- _schedule_prayer_alarms is now automatically called after schedule generation\n- Help text updated to reflect changelog behavior change\n- Various internal safeguards and output redirections for zero-noise operation\n- config.sh: Added essential dependencies (nodejs, termux-api, bc, sox, mpv)\n- config.sh: Automatic Python virtual environment (venv) creation with requests package\n- config.sh: Enhanced download error handling with clear failure messages\n- config.sh: Post-installation instructions for Termux:API, permissions, and venv usage"
   },
