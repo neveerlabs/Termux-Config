@@ -1,7 +1,7 @@
 # Termux Config
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/template.jpg" alt="Termux Config Preview" width="600">
+  <img src="https://raw.githubusercontent.com/neveerlabs/Termux-Config/main/assets.jpg" alt="Preview" width="600">
 </p>
 
 Konfigurasi Zsh untuk Termux yang membuat tampilan dan fitur seperti terminal Linux. Fitur:
