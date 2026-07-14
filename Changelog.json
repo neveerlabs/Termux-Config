@@ -1,5 +1,9 @@
 [
   {
+    "version": "v4.2.3",
+    "changes": "Banner centering fix:\n- Fixed ASCII art banner alignment for proper center positioning\n- Removed aggressive whitespace trimming that caused misalignment\n- Preserved original ASCII art spacing for consistent display\n- Improved terminal width calculation for accurate centering"
+  },
+  {
     "version": "v4.2.2",
     "changes": "UI enhancement & update improvements:\n- Modern download progress bar with live percentage and dynamic spinner\n- Smooth transition from loading percentage to 'Done' status upon completion\n- Refined progress display for better visibility and fewer visual artifacts\n- Enhanced error handling for download progress edge cases (missing content-length)\n- Version bump to v4.2.2"
   },
