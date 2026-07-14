@@ -45,7 +45,7 @@ bindkey -M autocomplete '^F' autosuggest-accept
 alias ls='ls --color=auto'
 export LS_COLORS='di=36:fi=37:ln=36:ex=32:or=31:mi=31:pi=35:so=33:bd=33;1:cd=33;1:su=37;41:sg=30;43:ca=30;41:tw=30;42:ow=34;42:st=37;44:*.tar=01;33:*.tgz=01;33:*.arc=01;33:*.arj=01;33:*.taz=01;33:*.lha=01;33:*.lz4=01;33:*.lzh=01;33:*.lzma=01;33:*.tlz=01;33:*.txz=01;33:*.tzo=01;33:*.t7z=01;33:*.zip=01;33:*.z=01;33:*.dz=01;33:*.gz=01;33:*.lrz=01;33:*.lz=01;33:*.lzo=01;33:*.xz=01;33:*.zst=01;33:*.tzst=01;33:*.bz2=01;33:*.bz=01;33:*.tbz=01;33:*.tbz2=01;33:*.tz=01;33:*.deb=01;33:*.rpm=01;33:*.jar=01;33:*.war=01;33:*.ear=01;33:*.sar=01;33:*.rar=01;33:*.alz=01;33:*.ace=01;33:*.zoo=01;33:*.cpio=01;33:*.7z=01;33:*.rz=01;33:*.cab=01;33:*.wim=01;33:*.swm=01;33:*.dwm=01;33:*.esd=01;33:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:'
 
-TERMUX_CONFIG_VERSION="v4.2.2"
+TERMUX_CONFIG_VERSION="v4.2.3"
 
 [ -f ~/.zsh_config ] && source ~/.zsh_config
 if [ -z "$USER_NAME" ]; then
@@ -373,6 +373,70 @@ _check_for_updates() {
     fi
 }
 
+show_banner() {
+    local cols
+    cols=$(stty size 2>/dev/null | awk '{print $2}')
+    [[ -z "$cols" || "$cols" -lt 10 ]] && cols=80
+
+    local lines=(
+        "████████╗███████╗██████╗ ███╗   ███╗██╗   ██╗██╗  ██╗"
+        "╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██║   ██║╚██╗██╔╝"
+        "   ██║   █████╗  ██████╔╝██╔████╔██║██║   ██║ ╚███╔╝ "
+        "   ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║   ██║ ██╔██╗ "
+        "   ██║   ███████╗██║  ██║██║ ╚═╝ ██║╚██████╔╝██╔╝ ██╗"
+        "   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝"
+    )
+
+    local max_len=0
+    local line
+    for line in "${lines[@]}"; do
+        local len=${#line}
+        (( len > max_len )) && max_len=$len
+    done
+
+    for line in "${lines[@]}"; do
+        local padding=$(( (cols - max_len) / 2 ))
+        (( padding < 0 )) && padding=0
+        printf "%*s\e[1;37m%s\e[0m\n" "$padding" "" "$line"
+    done
+
+    local ram_info
+    if [[ -f /proc/meminfo ]]; then
+        local ram_total=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+        local ram_avail=$(grep MemAvailable /proc/meminfo | awk '{print $2}')
+        if [[ -n "$ram_total" && -n "$ram_avail" ]]; then
+            local ram_used=$(( (ram_total - ram_avail) / 1024 ))
+            local ram_total_mb=$(( ram_total / 1024 ))
+            ram_info="${ram_used}M/${ram_total_mb}M"
+        else
+            ram_info="N/A"
+        fi
+    else
+        ram_info="N/A"
+    fi
+
+    local storage_info="N/A"
+    if df -h /sdcard >/dev/null 2>&1; then
+        storage_info=$(df -h /sdcard | awk 'NR==2 {print $3 "/" $2}')
+    elif df -h /storage/emulated/0 >/dev/null 2>&1; then
+        storage_info=$(df -h /storage/emulated/0 | awk 'NR==2 {print $3 "/" $2}')
+    elif df -h /data >/dev/null 2>&1; then
+        storage_info=$(df -h /data | awk 'NR==2 {print $3 "/" $2}')
+    fi
+
+    local ip
+    ip=$(ifconfig wlan0 2>/dev/null | grep 'inet ' | awk '{print $2}')
+    [[ -z "$ip" ]] && ip=$(ifconfig 2>/dev/null | grep 'inet ' | grep -v 127 | awk '{print $2}' | head -1)
+    [[ -z "$ip" ]] && ip="N/A"
+
+    local info="RAM: $ram_info | Storage: $storage_info | IP: $ip"
+    local info_len=${#info}
+    local padding=$(( (cols - info_len) / 2 ))
+    (( padding < 0 )) && padding=0
+    printf "%*s\e[1;37m%s\e[0m\n" "$padding" "" "$info"
+    echo
+}
+
 autoload -Uz vcs_info
 zstyle ':vcs_info:*' enable git
 zstyle ':vcs_info:*' check-for-changes false
@@ -384,9 +448,10 @@ precmd() {
     _last_exit_code=$?
     if (( _first_prompt )); then
         printf '\033[2J\033[H'
+        show_banner
         _first_prompt=0
-        _check_for_updates
-        (_auto_update_schedule &) 2>/dev/null
+        (_check_for_updates >/dev/null 2>&1 &)
+        (_auto_update_schedule >/dev/null 2>&1 &)
     fi
     vcs_info
     printf '\e[2 q'
@@ -550,8 +615,6 @@ command_not_found_handler() {
             ;;
     esac
 }
-
-# --------------- Location & Schedule Functions ---------------
 
 LOCATION_FILE="$HOME/.termux/location.json"
 SCHEDULE_FILE="$HOME/.termux/schedule.json"
